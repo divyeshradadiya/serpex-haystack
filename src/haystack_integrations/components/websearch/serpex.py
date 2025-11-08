@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, cast
 
 import httpx
 from haystack import component, default_from_dict, default_to_dict, logging
@@ -95,12 +95,15 @@ class SerpexWebSearch:
 
         :returns: Dictionary with serialized data.
         """
-        return default_to_dict(
-            self,
-            api_key=self.api_key.to_dict(),
-            engine=self.engine,
-            timeout=self.timeout,
-            retry_attempts=self.retry_attempts,
+        return cast(
+            Dict[str, Any],
+            default_to_dict(
+                self,
+                api_key=self.api_key.to_dict(),
+                engine=self.engine,
+                timeout=self.timeout,
+                retry_attempts=self.retry_attempts,
+            ),
         )
 
     @classmethod
@@ -112,7 +115,7 @@ class SerpexWebSearch:
         :returns: Deserialized component.
         """
         deserialize_secrets_inplace(data["init_parameters"], keys=["api_key"])
-        return default_from_dict(cls, data)
+        return cast("SerpexWebSearch", default_from_dict(cls, data))
 
     @component.output_types(documents=List[Document])
     def run(
