@@ -234,9 +234,9 @@ This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENS
 ## Support
 
 - 📧 Email: support@serpex.dev
-- 💬 Discord: [Join our community](https://discord.gg/serpex)
+- 💬 Discord: [Join our community](https://discord.com/channels/1417759329385316383/1421004675343319102)
 - 🐛 Issues: [GitHub Issues](https://github.com/divyeshradadiya/serpex-haystack/issues)
-- 📖 Docs: [docs.serpex.dev](https://docs.serpex.dev)
+- 📖 Docs: [docs.serpex.dev](https://serpex.dev/docs)
 
 ## Acknowledgments
 

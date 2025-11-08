@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 import httpx
 from haystack import component, default_from_dict, default_to_dict, logging
@@ -114,14 +114,14 @@ class SerpexWebSearch:
         deserialize_secrets_inplace(data["init_parameters"], keys=["api_key"])
         return default_from_dict(cls, data)
 
-    @component.output_types(documents=list[Document])
+    @component.output_types(documents=List[Document])
     def run(
         self,
         query: str,
         *,
         engine: Optional[Literal["auto", "google", "bing", "duckduckgo", "brave", "yahoo", "yandex"]] = None,
         time_range: Optional[Literal["all", "day", "week", "month", "year"]] = None,
-    ) -> dict[str, list[Document]]:
+    ) -> Dict[str, List[Document]]:
         """
         Fetches web search results for the given query.
 
@@ -131,7 +131,7 @@ class SerpexWebSearch:
                           Defaults to None (all time).
         :returns: Dictionary containing a list of Document objects with search results.
         """
-        documents: list[Document] = []
+        documents: List[Document] = []
 
         try:
             # Prepare request parameters
