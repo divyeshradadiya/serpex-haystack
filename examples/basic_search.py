@@ -2,7 +2,6 @@
 Basic example of using SerpexWebSearch component
 """
 
-
 from haystack.utils import Secret
 
 from haystack_integrations.components.websearch.serpex import SerpexWebSearch

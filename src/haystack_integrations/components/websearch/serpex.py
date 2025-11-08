@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Any, Literal, Optional
+from typing import Any, Dict, Literal, Optional
 
 import httpx
 from haystack import component, default_from_dict, default_to_dict, logging
@@ -70,7 +70,7 @@ class SerpexWebSearch:
             wait=wait_exponential(multiplier=1, min=2, max=10),
             retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.RequestError)),
         )
-        def make_request(url: str, headers: dict[str, str], params: dict[str, Any]) -> httpx.Response:
+        def make_request(url: str, headers: Dict[str, str], params: Dict[str, Any]) -> httpx.Response:
             response = self._client.get(url, headers=headers, params=params)
             response.raise_for_status()
             return response
@@ -89,7 +89,7 @@ class SerpexWebSearch:
         except Exception:
             pass
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> Dict[str, Any]:
         """
         Serializes the component to a dictionary.
 
@@ -104,7 +104,7 @@ class SerpexWebSearch:
         )
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "SerpexWebSearch":
+    def from_dict(cls, data: Dict[str, Any]) -> "SerpexWebSearch":
         """
         Deserializes the component from a dictionary.
 
@@ -135,7 +135,7 @@ class SerpexWebSearch:
 
         try:
             # Prepare request parameters
-            params: dict[str, Any] = {
+            params: Dict[str, Any] = {
                 "q": query,
                 "engine": engine or self.engine,
                 "category": "web",
