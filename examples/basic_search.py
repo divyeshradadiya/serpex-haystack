@@ -2,9 +2,9 @@
 Basic example of using SerpexWebSearch component
 """
 
-import os
 
 from haystack.utils import Secret
+
 from haystack_integrations.components.websearch.serpex import SerpexWebSearch
 
 
@@ -13,7 +13,6 @@ def main():
     web_search = SerpexWebSearch(
         api_key=Secret.from_env_var("SERPEX_API_KEY"),
         engine="google",
-        num_results=5,
     )
 
     # Perform a search

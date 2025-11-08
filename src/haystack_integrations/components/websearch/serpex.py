@@ -43,7 +43,6 @@ class SerpexWebSearch:
         *,
         api_key: Secret = Secret.from_env_var("SERPEX_API_KEY"),
         engine: Literal["auto", "google", "bing", "duckduckgo", "brave", "yahoo", "yandex"] = "google",
-        num_results: int = 10,
         timeout: float = 10.0,
         retry_attempts: int = 2,
     ) -> None:
@@ -53,13 +52,11 @@ class SerpexWebSearch:
         :param api_key: Serpex API key for authentication. Get yours at https://serpex.dev
         :param engine: Search engine to use. Options: "auto", "google", "bing", "duckduckgo",
                       "brave", "yahoo", "yandex". Defaults to "google".
-        :param num_results: Number of search results to return. Defaults to 10.
         :param timeout: Timeout in seconds for the API request. Defaults to 10.0.
         :param retry_attempts: Number of retry attempts for failed requests. Defaults to 2.
         """
         self.api_key = api_key
         self.engine = engine
-        self.num_results = num_results
         self.timeout = timeout
         self.retry_attempts = retry_attempts
 
@@ -102,7 +99,6 @@ class SerpexWebSearch:
             self,
             api_key=self.api_key.to_dict(),
             engine=self.engine,
-            num_results=self.num_results,
             timeout=self.timeout,
             retry_attempts=self.retry_attempts,
         )
@@ -124,7 +120,6 @@ class SerpexWebSearch:
         query: str,
         *,
         engine: Optional[Literal["auto", "google", "bing", "duckduckgo", "brave", "yahoo", "yandex"]] = None,
-        num_results: Optional[int] = None,
         time_range: Optional[Literal["all", "day", "week", "month", "year"]] = None,
     ) -> dict[str, list[Document]]:
         """
@@ -132,7 +127,6 @@ class SerpexWebSearch:
 
         :param query: The search query string.
         :param engine: Override the default search engine. If None, uses the engine from initialization.
-        :param num_results: Override the default number of results. If None, uses num_results from initialization.
         :param time_range: Time range filter for results. Options: "all", "day", "week", "month", "year".
                           Defaults to None (all time).
         :returns: Dictionary containing a list of Document objects with search results.
@@ -144,7 +138,6 @@ class SerpexWebSearch:
             params: dict[str, Any] = {
                 "q": query,
                 "engine": engine or self.engine,
-                "num": num_results or self.num_results,
                 "category": "web",
             }
 

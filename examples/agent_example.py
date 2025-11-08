@@ -6,6 +6,7 @@ from haystack import Pipeline
 from haystack.components.builders import PromptBuilder
 from haystack.components.generators import OpenAIGenerator
 from haystack.utils import Secret
+
 from haystack_integrations.components.websearch.serpex import SerpexWebSearch
 
 
@@ -32,7 +33,7 @@ Your Answer:
 
     # Build the agent pipeline
     agent = Pipeline()
-    agent.add_component("search", SerpexWebSearch(api_key=Secret.from_env_var("SERPEX_API_KEY"), num_results=8))
+    agent.add_component("search", SerpexWebSearch(api_key=Secret.from_env_var("SERPEX_API_KEY")))
     agent.add_component("prompt", PromptBuilder(template=agent_template))
     agent.add_component("llm", OpenAIGenerator(api_key=Secret.from_env_var("OPENAI_API_KEY"), model="gpt-4"))
 

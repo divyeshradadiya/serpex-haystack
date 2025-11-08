@@ -55,7 +55,6 @@ from haystack_integrations.components.websearch.serpex import SerpexWebSearch
 web_search = SerpexWebSearch(
     api_key=Secret.from_env_var("SERPEX_API_KEY"),
     engine="google",  # Options: google, bing, duckduckgo, brave, yahoo, yandex
-    num_results=10
 )
 
 # Perform a search
@@ -100,7 +99,6 @@ Answer:
 pipe = Pipeline()
 pipe.add_component("search", SerpexWebSearch(
     api_key=Secret.from_env_var("SERPEX_API_KEY"),
-    num_results=5
 ))
 pipe.add_component("prompt", PromptBuilder(template=prompt_template))
 pipe.add_component("llm", OpenAIGenerator(
@@ -148,7 +146,6 @@ recent_results = web_search.run(
 results = web_search.run(
     query="Python tutorials",
     engine="duckduckgo",  # Override default engine
-    num_results=20        # Override default count
 )
 ```
 
@@ -159,14 +156,12 @@ results = web_search.run(
 **Parameters:**
 - `api_key` (Secret): Serpex API key. Defaults to `SERPEX_API_KEY` environment variable.
 - `engine` (str): Search engine to use. Options: "auto", "google", "bing", "duckduckgo", "brave", "yahoo", "yandex". Default: "google".
-- `num_results` (int): Number of results to return. Default: 10.
 - `timeout` (float): Request timeout in seconds. Default: 10.0.
 - `retry_attempts` (int): Number of retry attempts for failed requests. Default: 2.
 
 **Inputs:**
 - `query` (str): The search query string.
 - `engine` (str, optional): Override the default search engine.
-- `num_results` (int, optional): Override the default number of results.
 - `time_range` (str, optional): Filter by time range ("all", "day", "week", "month", "year").
 
 **Outputs:**

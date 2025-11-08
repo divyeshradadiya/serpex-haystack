@@ -46,7 +46,6 @@ from haystack_integrations.components.websearch.serpex import SerpexWebSearch
 web_search = SerpexWebSearch(
     api_key=Secret.from_env_var("SERPEX_API_KEY"),
     engine="google",  # or "bing", "duckduckgo", "brave", "yahoo", "yandex"
-    num_results=10
 )
 
 # Use it standalone
@@ -126,7 +125,6 @@ recent_results = web_search.run(
 results = web_search.run(
     query="Python tutorials",
     engine="duckduckgo",  # Override default engine
-    num_results=20  # Override default count
 )
 ```
 
@@ -152,7 +150,6 @@ A Haystack component for fetching web search results via the Serpex API.
 
 - **api_key** (`Secret`, optional): Serpex API key. Defaults to `SERPEX_API_KEY` environment variable.
 - **engine** (`str`, optional): Search engine to use. Options: `"auto"`, `"google"`, `"bing"`, `"duckduckgo"`, `"brave"`, `"yahoo"`, `"yandex"`. Defaults to `"google"`.
-- **num_results** (`int`, optional): Number of results to return. Defaults to `10`.
 - **timeout** (`float`, optional): Request timeout in seconds. Defaults to `10.0`.
 - **retry_attempts** (`int`, optional): Number of retry attempts. Defaults to `2`.
 
@@ -160,7 +157,6 @@ A Haystack component for fetching web search results via the Serpex API.
 
 - **query** (`str`): The search query string.
 - **engine** (`str`, optional): Override the default search engine.
-- **num_results** (`int`, optional): Override the default number of results.
 - **time_range** (`str`, optional): Filter by time range (`"all"`, `"day"`, `"week"`, `"month"`, `"year"`).
 
 #### Outputs

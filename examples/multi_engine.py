@@ -3,6 +3,7 @@ Example comparing results from different search engines
 """
 
 from haystack.utils import Secret
+
 from haystack_integrations.components.websearch.serpex import SerpexWebSearch
 
 
@@ -17,7 +18,7 @@ def main():
         print(f"\n{engine.upper()} Results:")
         print("-" * 100)
 
-        search = SerpexWebSearch(api_key=Secret.from_env_var("SERPEX_API_KEY"), engine=engine, num_results=3)
+        search = SerpexWebSearch(api_key=Secret.from_env_var("SERPEX_API_KEY"), engine=engine)
 
         results = search.run(query=query)
 
