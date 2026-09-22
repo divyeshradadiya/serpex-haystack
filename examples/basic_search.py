@@ -11,7 +11,6 @@ def main():
     # Initialize the component
     web_search = SerpexWebSearch(
         api_key=Secret.from_env_var("SERPEX_API_KEY"),
-        engine="google",
     )
 
     # Perform a search

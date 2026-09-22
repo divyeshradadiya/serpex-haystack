@@ -16,7 +16,7 @@ class TestSerpexWebSearch:
         """Test initialization with default parameters"""
         with patch.dict(os.environ, {"SERPEX_API_KEY": "test_key"}):
             component = SerpexWebSearch()
-            assert component.engine == "google"
+            assert component.engine == "auto"
             assert component.timeout == 10.0
             assert component.retry_attempts == 2
 
@@ -24,11 +24,11 @@ class TestSerpexWebSearch:
         """Test initialization with custom parameters"""
         component = SerpexWebSearch(
             api_key=Secret.from_token("custom_key"),
-            engine="bing",
+            engine="legacy-a",
             timeout=15.0,
             retry_attempts=3,
         )
-        assert component.engine == "bing"
+        assert component.engine == "legacy-a"
         assert component.timeout == 15.0
         assert component.retry_attempts == 3
 
@@ -37,12 +37,12 @@ class TestSerpexWebSearch:
         with patch.dict(os.environ, {"SERPEX_API_KEY": "test_key"}):
             component = SerpexWebSearch(
                 api_key=Secret.from_env_var("SERPEX_API_KEY"),
-                engine="duckduckgo",
+                engine="legacy-b",
             )
             data = component.to_dict()
 
             assert data["type"] == "haystack_integrations.components.websearch.serpex.SerpexWebSearch"
-            assert data["init_parameters"]["engine"] == "duckduckgo"
+            assert data["init_parameters"]["engine"] == "legacy-b"
 
     def test_from_dict(self):
         """Test deserialization from dictionary"""
@@ -50,7 +50,7 @@ class TestSerpexWebSearch:
             "type": "haystack_integrations.components.websearch.serpex.SerpexWebSearch",
             "init_parameters": {
                 "api_key": {"type": "env_var", "env_vars": ["SERPEX_API_KEY"], "strict": True},
-                "engine": "brave",
+                "engine": "legacy-c",
                 "timeout": 20.0,
                 "retry_attempts": 4,
             },
@@ -58,7 +58,7 @@ class TestSerpexWebSearch:
 
         with patch.dict(os.environ, {"SERPEX_API_KEY": "test_key"}):
             component = SerpexWebSearch.from_dict(data)
-            assert component.engine == "brave"
+            assert component.engine == "legacy-c"
             assert component.timeout == 20.0
             assert component.retry_attempts == 4
 
@@ -114,12 +114,12 @@ class TestSerpexWebSearch:
         mock_client.return_value = mock_instance
 
         component = SerpexWebSearch(api_key=Secret.from_token("test_key"))
-        component.run(query="test", engine="bing", time_range="week")
+        component.run(query="test", engine="legacy-a", time_range="week")
 
         # Check that parameters were passed correctly
         call_args = mock_instance.get.call_args
         params = call_args[1]["params"]
-        assert params["engine"] == "bing"
+        assert params["engine"] == "legacy-a"
         assert params["time_range"] == "week"
 
     @patch("haystack_integrations.components.websearch.serpex.httpx.Client")

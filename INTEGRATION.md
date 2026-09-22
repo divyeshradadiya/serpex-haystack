@@ -1,12 +1,11 @@
 ---
 layout: integration
 name: Serpex
-description: Multi-engine web search integration for Haystack - supporting Google, Bing, DuckDuckGo, Brave, Yahoo, and Yandex
+description: Real-time web search integration for Haystack, powered by Serpex
 authors:
     - name: Divyesh Radadiya
       socials:
         github: divyeshradadiya
-        linkedin: https://www.linkedin.com/in/divyesh-radadiya
 pypi: https://pypi.org/project/serpex-haystack/
 repo: https://github.com/divyeshradadiya/serpex-haystack
 type: Custom Component
@@ -24,11 +23,11 @@ toc: true
 
 ## Overview
 
-[Serpex](https://serpex.dev) is a unified web search API that provides access to multiple search engines through a single interface. This Haystack integration enables you to seamlessly incorporate web search results into your RAG (Retrieval-Augmented Generation) pipelines and AI applications.
+[Serpex](https://serpex.dev) is a real-time web search API. This Haystack integration enables you to seamlessly incorporate web search results into your RAG (Retrieval-Augmented Generation) pipelines and AI applications.
 
 ### Key Features
 
-- 🔍 **Multi-Engine Support**: Access Google, Bing, DuckDuckGo, Brave, Yahoo, and Yandex from one API
+- 🔍 **Real-Time Web Search**: One search engine, nothing to configure
 - ⚡ **High Performance**: Fast and reliable with automatic retry logic and exponential backoff
 - 🎯 **Rich Results**: Get organic search results with titles, snippets, URLs, and positions
 - 🕒 **Time Filters**: Filter results by day, week, month, or year
@@ -41,7 +40,7 @@ toc: true
 pip install serpex-haystack
 ```
 
-To use this integration, you'll need a Serpex API key. Sign up for free at [serpex.dev](https://serpex.dev) to get your API key.
+To use this integration, you'll need a Serpex API key. Sign up at [serpex.dev](https://serpex.dev) to get your API key.
 
 ## Usage
 
@@ -54,7 +53,6 @@ from haystack_integrations.components.websearch.serpex import SerpexWebSearch
 # Initialize the component
 web_search = SerpexWebSearch(
     api_key=Secret.from_env_var("SERPEX_API_KEY"),
-    engine="google",  # Options: google, bing, duckduckgo, brave, yahoo, yandex
 )
 
 # Perform a search
@@ -120,14 +118,11 @@ print(result["llm"]["replies"][0])
 
 ### Advanced Features
 
-#### Multiple Search Engines
+#### The `engine` parameter (deprecated)
 
-```python
-# Compare results from different engines
-google_search = SerpexWebSearch(engine="google")
-bing_search = SerpexWebSearch(engine="bing")
-duckduckgo_search = SerpexWebSearch(engine="duckduckgo")
-```
+Serpex is one search engine, so there is nothing to select. `engine` is
+deprecated and ignored by the Serpex API since 2026-06; it is still accepted so
+existing pipelines keep working, and defaults to `"auto"`.
 
 #### Time Range Filtering
 
@@ -145,7 +140,7 @@ recent_results = web_search.run(
 # Override default settings per query
 results = web_search.run(
     query="Python tutorials",
-    engine="duckduckgo",  # Override default engine
+    time_range="month",
 )
 ```
 
@@ -155,13 +150,13 @@ results = web_search.run(
 
 **Parameters:**
 - `api_key` (Secret): Serpex API key. Defaults to `SERPEX_API_KEY` environment variable.
-- `engine` (str): Search engine to use. Options: "auto", "google", "bing", "duckduckgo", "brave", "yahoo", "yandex". Default: "google".
+- `engine` (str): **Deprecated** — ignored by the Serpex API. Still accepted; default: "auto".
 - `timeout` (float): Request timeout in seconds. Default: 10.0.
 - `retry_attempts` (int): Number of retry attempts for failed requests. Default: 2.
 
 **Inputs:**
 - `query` (str): The search query string.
-- `engine` (str, optional): Override the default search engine.
+- `engine` (str, optional): **Deprecated** — still accepted, ignored by the API.
 - `time_range` (str, optional): Filter by time range ("all", "day", "week", "month", "year").
 
 **Outputs:**
@@ -174,7 +169,7 @@ Each document contains:
   - `url`: Result URL
   - `position`: Position in search results
   - `query`: Original search query
-  - `engine`: Search engine used
+  - `engine`: Legacy field, kept for compatibility
 
 ### Error Handling
 

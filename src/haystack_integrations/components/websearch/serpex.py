@@ -18,7 +18,7 @@ class SerpexWebSearch:
     """
     Fetches web search results from the Serpex API.
 
-    Serpex provides web search results from multiple search engines including Google, Bing, DuckDuckGo, and more.
+    Serpex is a real-time web search API.
     Use it to retrieve organic search results, snippets, and metadata for search queries.
 
     ### Usage example
@@ -42,7 +42,7 @@ class SerpexWebSearch:
         self,
         *,
         api_key: Secret = Secret.from_env_var("SERPEX_API_KEY"),
-        engine: Literal["auto", "google", "bing", "duckduckgo", "brave", "yahoo", "yandex"] = "google",
+        engine: str = "auto",
         timeout: float = 10.0,
         retry_attempts: int = 2,
     ) -> None:
@@ -50,8 +50,9 @@ class SerpexWebSearch:
         Initializes the SerpexWebSearch component.
 
         :param api_key: Serpex API key for authentication. Get yours at https://serpex.dev
-        :param engine: Search engine to use. Options: "auto", "google", "bing", "duckduckgo",
-                      "brave", "yahoo", "yandex". Defaults to "google".
+        :param engine: Deprecated — ignored by the Serpex API since 2026-06 (Serpex is a single
+                      search engine). Still accepted so existing code and saved pipelines keep
+                      working. Defaults to "auto".
         :param timeout: Timeout in seconds for the API request. Defaults to 10.0.
         :param retry_attempts: Number of retry attempts for failed requests. Defaults to 2.
         """
@@ -122,14 +123,14 @@ class SerpexWebSearch:
         self,
         query: str,
         *,
-        engine: Optional[Literal["auto", "google", "bing", "duckduckgo", "brave", "yahoo", "yandex"]] = None,
+        engine: Optional[str] = None,
         time_range: Optional[Literal["all", "day", "week", "month", "year"]] = None,
     ) -> Dict[str, List[Document]]:
         """
         Fetches web search results for the given query.
 
         :param query: The search query string.
-        :param engine: Override the default search engine. If None, uses the engine from initialization.
+        :param engine: Deprecated — still accepted, ignored by the Serpex API.
         :param time_range: Time range filter for results. Options: "all", "day", "week", "month", "year".
                           Defaults to None (all time).
         :returns: Dictionary containing a list of Document objects with search results.

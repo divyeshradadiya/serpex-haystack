@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "serpex-haystack"
-version = "1.0.0"
-description = "Haystack integration for Serpex web search - supporting Google, Bing, DuckDuckGo, Brave, Yahoo, and Yandex"
+version = "1.0.1"
+description = "Haystack integration for Serpex, a real-time web search API"
 readme = "README.md"
 requires-python = ">=3.8"
 license = "Apache-2.0"
@@ -14,9 +14,9 @@ keywords = [
     "serpex",
     "web-search",
     "search-api",
-    "google-search",
-    "bing-search",
-    "duckduckgo",
+    "real-time-search",
+    "rag",
+    "ai-agents",
     "nlp",
     "ai",
     "llm",
