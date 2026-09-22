@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `engine` deprecated (ignored by the API since 2026-06). Still accepted in `__init__`, `run()` and saved pipelines; its type hint is now `str` (was a `Literal` of engine names — any value that type-checked before still does) and its default is now `"auto"` (the API ignores it either way). `Document.meta["engine"]` is kept.
 
 ### Removed
-- `examples/multi_engine.py` and the internal `STRUCTURE_COMPARISON.md`.
+- The engine-comparison example and the internal structure-comparison note.
 
 ## [1.0.0] - 2024-11-08
 
