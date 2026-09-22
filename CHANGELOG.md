@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial release of Serpex Haystack integration
 - `SerpexWebSearch` component for web search functionality
-- Support for multiple search engines: Google, Bing, DuckDuckGo, Brave, Yahoo, Yandex
+- Real-time web search via the Serpex API
 - Time range filtering for search results
 - Automatic retry logic with exponential backoff
 - Runtime parameter override capability
