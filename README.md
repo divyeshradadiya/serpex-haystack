@@ -6,16 +6,16 @@
 [![CI Tests](https://github.com/divyeshradadiya/serpex-haystack/actions/workflows/ci.yml/badge.svg)](https://github.com/divyeshradadiya/serpex-haystack/actions/workflows/ci.yml)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-[Serpex](https://serpex.dev) integration for [Haystack](https://haystack.deepset.ai/) - bringing powerful multi-engine web search capabilities to your Haystack pipelines.
+[Serpex](https://serpex.dev) integration for [Haystack](https://haystack.deepset.ai/) - bringing real-time web search to your Haystack pipelines.
 
 ## Overview
 
-Serpex is a unified web search API that provides access to multiple search engines including Google, Bing, DuckDuckGo, Brave, Yahoo, and Yandex. This integration allows you to seamlessly incorporate web search results into your Haystack RAG (Retrieval-Augmented Generation) pipelines and AI applications.
+Serpex is a real-time web search API, with page content extraction that turns URLs into LLM-ready markdown. This integration allows you to seamlessly incorporate web search results into your Haystack RAG (Retrieval-Augmented Generation) pipelines and AI applications.
 
 ### Key Features
 
-- 🔍 **Multi-Engine Support**: Switch between Google, Bing, DuckDuckGo, Brave, Yahoo, and Yandex
-- ⚡ **High Performance**: Fast and reliable API with automatic retries
+- 🔍 **Real-Time Web Search**: One search engine, nothing to configure
+- ⚡ **Reliable**: Automatic retries with exponential backoff
 - 🎯 **Rich Results**: Get organic search results with titles, snippets, and URLs
 - 🕒 **Time Filters**: Filter results by day, week, month, or year
 - 🔒 **Type-Safe**: Fully typed with comprehensive type hints
@@ -31,7 +31,7 @@ pip install serpex-haystack
 
 ### Get Your API Key
 
-Sign up at [Serpex.dev](https://serpex.dev) to get your free API key.
+Sign up at [Serpex.dev](https://serpex.dev) to get your API key.
 
 ### Basic Usage
 
@@ -45,7 +45,6 @@ from haystack_integrations.components.websearch.serpex import SerpexWebSearch
 # Create a web search component
 web_search = SerpexWebSearch(
     api_key=Secret.from_env_var("SERPEX_API_KEY"),
-    engine="google",  # or "bing", "duckduckgo", "brave", "yahoo", "yandex"
 )
 
 # Use it standalone
@@ -99,14 +98,12 @@ print(result["llm"]["replies"][0])
 
 ## Advanced Features
 
-### Multiple Search Engines
+### The `engine` parameter (deprecated)
 
-```python
-# Use different engines for different queries
-google_search = SerpexWebSearch(engine="google")
-bing_search = SerpexWebSearch(engine="bing")
-duckduckgo_search = SerpexWebSearch(engine="duckduckgo")
-```
+Serpex is one search engine, so there is nothing to select. `engine` is
+deprecated and ignored by the Serpex API since 2026-06. It is still accepted
+(in `__init__`, `run()` and saved pipeline YAML) so existing pipelines keep
+loading and running; the default is now `"auto"`.
 
 ### Time Range Filtering
 
@@ -124,7 +121,7 @@ recent_results = web_search.run(
 # Override settings at runtime
 results = web_search.run(
     query="Python tutorials",
-    engine="duckduckgo",  # Override default engine
+    time_range="month",
 )
 ```
 
@@ -149,14 +146,14 @@ A Haystack component for fetching web search results via the Serpex API.
 #### Parameters
 
 - **api_key** (`Secret`, optional): Serpex API key. Defaults to `SERPEX_API_KEY` environment variable.
-- **engine** (`str`, optional): Search engine to use. Options: `"auto"`, `"google"`, `"bing"`, `"duckduckgo"`, `"brave"`, `"yahoo"`, `"yandex"`. Defaults to `"google"`.
+- **engine** (`str`, optional): **Deprecated** — ignored by the Serpex API. Still accepted; defaults to `"auto"`.
 - **timeout** (`float`, optional): Request timeout in seconds. Defaults to `10.0`.
 - **retry_attempts** (`int`, optional): Number of retry attempts. Defaults to `2`.
 
 #### Inputs
 
 - **query** (`str`): The search query string.
-- **engine** (`str`, optional): Override the default search engine.
+- **engine** (`str`, optional): **Deprecated** — still accepted, ignored by the API.
 - **time_range** (`str`, optional): Filter by time range (`"all"`, `"day"`, `"week"`, `"month"`, `"year"`).
 
 #### Outputs
@@ -170,7 +167,7 @@ Each document includes:
   - `url`: Result URL
   - `position`: Position in search results
   - `query`: Original search query
-  - `engine`: Search engine used
+  - `engine`: Legacy field, kept for compatibility (the `engine` value passed in, `"auto"` by default)
 
 ## Examples
 
@@ -178,17 +175,13 @@ Check out the [examples](examples/) directory for more use cases:
 
 - [Basic Search](examples/basic_search.py)
 - [RAG Pipeline](examples/rag_pipeline.py)
-- [Multi-Engine Comparison](examples/multi_engine.py)
 - [Agent with Web Search](examples/agent_example.py)
 
 ## Why Serpex?
 
-- **🌐 Multi-Engine Access**: One API for all major search engines
-- **⚡ Fast & Reliable**: Optimized infrastructure with 99.9% uptime
-- **💰 Cost-Effective**: Competitive pricing with generous free tier
-- **📊 Rich Metadata**: Comprehensive result data including positions, timestamps, and more
-- **🔒 Secure**: Enterprise-grade security and data privacy
-- **🚀 Scalable**: Handle thousands of requests per second
+- **🌐 Real-Time Web Search**: current results for any query, as structured JSON
+- **📄 Page Content Extraction**: turn URLs into LLM-ready markdown
+- **🤖 Built for AI**: made for agents, LLM tools and RAG pipelines
 
 ## Documentation
 
