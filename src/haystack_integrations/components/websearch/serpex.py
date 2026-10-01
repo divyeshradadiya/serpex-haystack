@@ -27,7 +27,7 @@ SEARCH_CONTENT_TIMEOUT = 100.0
 def _is_retryable(error: BaseException) -> bool:
     """Retry transport errors, 429 and 5xx only. 4xx (bad request, auth, credits, plan) never succeed on retry."""
     if isinstance(error, httpx.HTTPStatusError):
-        status = error.response.status_code
+        status: int = error.response.status_code
         return status == 429 or status >= 500
     return isinstance(error, httpx.RequestError)
 
