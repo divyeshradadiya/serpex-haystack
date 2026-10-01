@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "serpex-haystack"
-version = "1.0.1"
-description = "Haystack integration for Serpex, a real-time web search API"
+version = "1.0.2"
+description = "Haystack integration for Serpex, a web search API for AI agents"
 readme = "README.md"
 requires-python = ">=3.8"
 license = "Apache-2.0"

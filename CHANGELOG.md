@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Haystack 2.0+ compatibility
 
 ### Features
-- Multi-engine web search support
+- Web search support
 - Rich result metadata (title, URL, snippet, position)
 - Configurable timeout and retry attempts
 - Environment variable support for API keys
