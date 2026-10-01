@@ -6,15 +6,15 @@
 [![CI Tests](https://github.com/divyeshradadiya/serpex-haystack/actions/workflows/ci.yml/badge.svg)](https://github.com/divyeshradadiya/serpex-haystack/actions/workflows/ci.yml)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-[Serpex](https://serpex.dev) integration for [Haystack](https://haystack.deepset.ai/) - bringing real-time web search to your Haystack pipelines.
+[Serpex](https://serpex.dev) integration for [Haystack](https://haystack.deepset.ai/) - bringing web search to your Haystack pipelines.
 
 ## Overview
 
-Serpex is a real-time web search API, with page content extraction that turns URLs into LLM-ready markdown. This integration allows you to seamlessly incorporate web search results into your Haystack RAG (Retrieval-Augmented Generation) pipelines and AI applications.
+Serpex is the web search API and extract API for AI agents: ranked web results, optionally with page content as markdown. This integration allows you to seamlessly incorporate web search results into your Haystack RAG (Retrieval-Augmented Generation) pipelines and AI applications.
 
 ### Key Features
 
-- 🔍 **Real-Time Web Search**: One search engine, nothing to configure
+- 🔍 **Web Search**: One search engine, nothing to configure; optional page content as markdown
 - ⚡ **Reliable**: Automatic retries with exponential backoff
 - 🎯 **Rich Results**: Get organic search results with titles, snippets, and URLs
 - 🕒 **Time Filters**: Filter results by day, week, month, or year
@@ -98,44 +98,43 @@ print(result["llm"]["replies"][0])
 
 ## Advanced Features
 
-### The `engine` parameter (deprecated)
-
-Serpex is one search engine, so there is nothing to select. `engine` is
-deprecated and ignored by the Serpex API since 2026-06. It is still accepted
-(in `__init__`, `run()` and saved pipeline YAML) so existing pipelines keep
-loading and running; the default is now `"auto"`.
-
-### Time Range Filtering
+### Page content
 
 ```python
-# Get only recent results
-recent_results = web_search.run(
-    query="AI news",
-    time_range="week"  # Options: "day", "week", "month", "year", "all"
-)
+# Each Document carries the page content (markdown) for the top 5 results;
+# the snippet moves to meta["snippet"].
+web_search = SerpexWebSearch(include_content=True, content_results=5)
+results = web_search.run(query="AI news")
+
+# Or per call
+results = web_search.run(query="Python tutorials", include_content=True)
 ```
 
-### Runtime Configuration Override
+Best-effort: a page that can't be extracted keeps the snippet as `content` and
+carries `meta["content_error"]`.
 
-```python
-# Override settings at runtime
-results = web_search.run(
-    query="Python tutorials",
-    time_range="month",
-)
-```
+### Deprecated parameters
 
-### Error Handling with Retries
+Serpex is one search engine, so there is nothing to select. `engine` (in
+`__init__` and `run()`) and `time_range` (in `run()`) are deprecated and ignored
+by the Serpex API. They are still accepted so existing code keeps running, emit a
+`DeprecationWarning`, and are not sent. Pipelines saved with an older version
+still load: their `engine` value is dropped. Removed in 2.0.
 
-The component includes built-in retry logic with exponential backoff:
+### Timeouts and retries
 
 ```python
 web_search = SerpexWebSearch(
     api_key=Secret.from_env_var("SERPEX_API_KEY"),
-    timeout=10.0,  # Request timeout in seconds
-    retry_attempts=3  # Number of retry attempts
+    timeout=60.0,  # Request timeout in seconds
+    retry_attempts=3  # Total attempts on a transport error, 429 or 5xx
 )
 ```
+
+The default timeout is 60 s (100 s with `include_content`), longer than the
+server's own budget, so a slow search isn't abandoned after the server has billed
+it. Only transport errors, 429 and 5xx are retried; 4xx errors (bad request,
+invalid key, no credits) fail immediately.
 
 ## Component Reference
 
@@ -146,28 +145,31 @@ A Haystack component for fetching web search results via the Serpex API.
 #### Parameters
 
 - **api_key** (`Secret`, optional): Serpex API key. Defaults to `SERPEX_API_KEY` environment variable.
-- **engine** (`str`, optional): **Deprecated** — ignored by the Serpex API. Still accepted; defaults to `"auto"`.
-- **timeout** (`float`, optional): Request timeout in seconds. Defaults to `10.0`.
-- **retry_attempts** (`int`, optional): Number of retry attempts. Defaults to `2`.
+- **timeout** (`float`, optional): Request timeout in seconds. Defaults to 60, or 100 with `include_content`.
+- **retry_attempts** (`int`, optional): Total attempts on a transport error, 429 or 5xx. Defaults to `2`.
+- **include_content** (`bool`, optional): Also fetch page content (markdown) for the top results. Defaults to `False`.
+- **content_results** (`int`, optional): How many top results get content, `5` or `10`. Defaults to `5`.
+- **engine** (`str`, optional): **Deprecated** — ignored by the Serpex API and not sent.
 
 #### Inputs
 
 - **query** (`str`): The search query string.
-- **engine** (`str`, optional): **Deprecated** — still accepted, ignored by the API.
-- **time_range** (`str`, optional): Filter by time range (`"all"`, `"day"`, `"week"`, `"month"`, `"year"`).
+- **include_content** (`bool`, optional): Overrides the component setting for this call.
+- **engine**, **time_range** (optional): **Deprecated** — ignored by the Serpex API and not sent.
 
 #### Outputs
 
 - **documents** (`List[Document]`): List of Haystack Document objects containing search results.
 
 Each document includes:
-- **content**: The search result snippet
+- **content**: The page content (markdown) when `include_content` is on and the page was extracted; otherwise the snippet
 - **meta**:
   - `title`: Result title
   - `url`: Result URL
   - `position`: Position in search results
   - `query`: Original search query
-  - `engine`: Legacy field, kept for compatibility (the `engine` value passed in, `"auto"` by default)
+  - `snippet`, `content_error`: Only with `include_content`
+  - `engine`: **Deprecated**, always `"auto"`; removed in 2.0
 
 ## Examples
 

@@ -1,6 +1,6 @@
 # serpex-haystack
 
-Haystack integration for Serpex web search API, enabling real-time web search in Haystack pipelines and AI applications.
+Haystack integration for Serpex, the web search API and extract API for AI agents: web search, optionally with page content, in Haystack pipelines and AI applications.
 
 For detailed documentation, see [README.md](README.md)
 

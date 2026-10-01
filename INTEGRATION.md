@@ -1,7 +1,7 @@
 ---
 layout: integration
 name: Serpex
-description: Real-time web search integration for Haystack, powered by Serpex
+description: Web search integration for Haystack, powered by Serpex
 authors:
     - name: Divyesh Radadiya
       socials:
@@ -23,11 +23,11 @@ toc: true
 
 ## Overview
 
-[Serpex](https://serpex.dev) is a real-time web search API. This Haystack integration enables you to seamlessly incorporate web search results into your RAG (Retrieval-Augmented Generation) pipelines and AI applications.
+[Serpex](https://serpex.dev) is the web search API and extract API for AI agents. This Haystack integration enables you to seamlessly incorporate web search results into your RAG (Retrieval-Augmented Generation) pipelines and AI applications.
 
 ### Key Features
 
-- 🔍 **Real-Time Web Search**: One search engine, nothing to configure
+- 🔍 **Web Search**: One search engine, nothing to configure; optional page content as markdown
 - ⚡ **High Performance**: Fast and reliable with automatic retry logic and exponential backoff
 - 🎯 **Rich Results**: Get organic search results with titles, snippets, URLs, and positions
 - 🕒 **Time Filters**: Filter results by day, week, month, or year
@@ -118,58 +118,76 @@ print(result["llm"]["replies"][0])
 
 ### Advanced Features
 
-#### The `engine` parameter (deprecated)
-
-Serpex is one search engine, so there is nothing to select. `engine` is
-deprecated and ignored by the Serpex API since 2026-06; it is still accepted so
-existing pipelines keep working, and defaults to `"auto"`.
-
-#### Time Range Filtering
+#### Page content
 
 ```python
-# Get only recent results
-recent_results = web_search.run(
-    query="AI news",
-    time_range="week"  # Options: day, week, month, year, all
+# Each Document carries the page content (markdown) for the top 5 results;
+# the snippet moves to meta["snippet"].
+web_search = SerpexWebSearch(include_content=True, content_results=5)
+results = web_search.run(query="AI news")
+
+# Or per call
+results = web_search.run(query="Python tutorials", include_content=True)
+```
+
+Best-effort: a page that can't be extracted keeps the snippet as `content` and
+carries `meta["content_error"]`.
+
+#### Deprecated parameters
+
+Serpex is one search engine, so there is nothing to select. `engine` (in
+`__init__` and `run()`) and `time_range` (in `run()`) are deprecated and ignored
+by the Serpex API. They are still accepted so existing code keeps running, emit a
+`DeprecationWarning`, and are not sent. Pipelines saved with an older version
+still load: their `engine` value is dropped. Removed in 2.0.
+
+#### Timeouts and retries
+
+```python
+web_search = SerpexWebSearch(
+    api_key=Secret.from_env_var("SERPEX_API_KEY"),
+    timeout=60.0,  # Request timeout in seconds
+    retry_attempts=3  # Total attempts on a transport error, 429 or 5xx
 )
 ```
 
-#### Runtime Parameter Override
-
-```python
-# Override default settings per query
-results = web_search.run(
-    query="Python tutorials",
-    time_range="month",
-)
-```
+The default timeout is 60 s (100 s with `include_content`), longer than the
+server's own budget, so a slow search isn't abandoned after the server has billed
+it. Only transport errors, 429 and 5xx are retried; 4xx errors (bad request,
+invalid key, no credits) fail immediately.
 
 ### Component API
 
 #### SerpexWebSearch
 
 **Parameters:**
-- `api_key` (Secret): Serpex API key. Defaults to `SERPEX_API_KEY` environment variable.
-- `engine` (str): **Deprecated** — ignored by the Serpex API. Still accepted; default: "auto".
-- `timeout` (float): Request timeout in seconds. Default: 10.0.
-- `retry_attempts` (int): Number of retry attempts for failed requests. Default: 2.
+
+- **api_key** (`Secret`, optional): Serpex API key. Defaults to `SERPEX_API_KEY` environment variable.
+- **timeout** (`float`, optional): Request timeout in seconds. Defaults to 60, or 100 with `include_content`.
+- **retry_attempts** (`int`, optional): Total attempts on a transport error, 429 or 5xx. Defaults to `2`.
+- **include_content** (`bool`, optional): Also fetch page content (markdown) for the top results. Defaults to `False`.
+- **content_results** (`int`, optional): How many top results get content, `5` or `10`. Defaults to `5`.
+- **engine** (`str`, optional): **Deprecated** — ignored by the Serpex API and not sent.
 
 **Inputs:**
-- `query` (str): The search query string.
-- `engine` (str, optional): **Deprecated** — still accepted, ignored by the API.
-- `time_range` (str, optional): Filter by time range ("all", "day", "week", "month", "year").
+
+- **query** (`str`): The search query string.
+- **include_content** (`bool`, optional): Overrides the component setting for this call.
+- **engine**, **time_range** (optional): **Deprecated** — ignored by the Serpex API and not sent.
 
 **Outputs:**
-- `documents` (List[Document]): List of Haystack Document objects with search results.
 
-Each document contains:
-- `content`: The search result snippet
-- `meta`:
+- **documents** (`List[Document]`): List of Haystack Document objects containing search results.
+
+Each document includes:
+- **content**: The page content (markdown) when `include_content` is on and the page was extracted; otherwise the snippet
+- **meta**:
   - `title`: Result title
   - `url`: Result URL
   - `position`: Position in search results
   - `query`: Original search query
-  - `engine`: Legacy field, kept for compatibility
+  - `snippet`, `content_error`: Only with `include_content`
+  - `engine`: **Deprecated**, always `"auto"`; removed in 2.0
 
 ### Error Handling
 
@@ -178,8 +196,8 @@ The component includes built-in retry logic with exponential backoff for handlin
 ```python
 web_search = SerpexWebSearch(
     api_key=Secret.from_env_var("SERPEX_API_KEY"),
-    timeout=15.0,        # Increase timeout for slower networks
-    retry_attempts=3     # Retry up to 3 times on failure
+    timeout=90.0,        # Request timeout in seconds
+    retry_attempts=3     # Total attempts on a transport error, 429 or 5xx
 )
 ```
 
