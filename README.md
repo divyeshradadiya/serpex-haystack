@@ -119,7 +119,7 @@ Every search is routed automatically, so there is nothing to select. `engine` (i
 `__init__` and `run()`) and `time_range` (in `run()`) are deprecated and ignored
 by the Serpex API. They are still accepted so existing code keeps running, emit a
 `DeprecationWarning`, and are not sent. Pipelines saved with an older version
-still load: their `engine` value is dropped. Removed in 2.0. For a date filter put
+still load: their `engine` value is dropped. Removed in 3.0. For a date filter put
 `after:YYYY-MM-DD` / `before:YYYY-MM-DD` in the query instead of `time_range`.
 
 ### Timeouts and retries
@@ -155,7 +155,7 @@ except SerpexError as e:
 ```
 
 The component calls the API through the official [`serpex`](https://pypi.org/project/serpex/)
-SDK, so request parameters, timeouts and error parsing follow the SDK. Requests carry
+SDK (`>=2.12.0`), so request parameters, timeouts and error parsing follow the SDK. Requests carry
 `User-Agent: serpex-python/<sdk version> serpex-haystack/<version>`.
 
 ## Component Reference
@@ -193,7 +193,7 @@ Each document includes:
   - `position`: Position in search results
   - `query`: Original search query
   - `snippet`, `content_error`: Only with `include_content`
-  - `engine`: **Deprecated**, always `"auto"`; removed in 2.0
+  - `engine`: **Deprecated**, always `"auto"`; removed in 3.0
 
 ## Examples
 

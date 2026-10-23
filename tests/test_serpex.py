@@ -6,8 +6,10 @@ triggered safely use the exact body from the backend code); manifest.json has ea
 runs its real path through the official serpex SDK; only the SDK's HTTP session is replaced. No network.
 """
 
+import copy
 import json
 import os
+import pickle
 import warnings
 from pathlib import Path
 from typing import Any, Dict, List
@@ -148,8 +150,8 @@ class TestSerpexWebSearch:
 
     def test_user_agent_names_sdk_and_component(self):
         ua = make()._get_client().session.headers["User-Agent"]
-        assert USER_AGENT == "serpex-haystack/1.1.1"
-        assert isinstance(ua, str) and ua.startswith("serpex-python/") and ua.endswith(" serpex-haystack/1.1.1")
+        assert USER_AGENT == "serpex-haystack/2.0.0"
+        assert isinstance(ua, str) and ua.startswith("serpex-python/") and ua.endswith(" serpex-haystack/2.0.0")
 
     def test_run_sends_only_q(self):
         """Deprecated run() params are accepted, warned, and never sent"""
@@ -233,6 +235,24 @@ class TestSerpexWebSearch:
 
     def test_error_is_exported(self):
         assert ExportedSerpexError is SerpexError
+
+    def test_error_pickles_and_deep_copies(self):
+        """Pipelines copy and pickle component errors (e.g. across processes); every field must survive."""
+        component = make()
+        serve(component, "error_402_search")
+        with pytest.raises(SerpexError) as info:
+            component.run(query="x")
+        original = info.value
+        for clone in (pickle.loads(pickle.dumps(original)), copy.deepcopy(original), copy.copy(original)):
+            assert type(clone) is SerpexError and isinstance(clone, ComponentError)
+            assert str(clone) == str(original)
+            assert clone.status_code == 402 and clone.retryable is False
+            assert clone.details == fixture("error_402_search")
+
+    def test_error_defaults(self):
+        e = SerpexError("boom")
+        assert (e.status_code, e.details, e.retryable) == (None, {}, False)
+        assert pickle.loads(pickle.dumps(e)).details == {}
 
     def test_cleanup(self):
         component = make()

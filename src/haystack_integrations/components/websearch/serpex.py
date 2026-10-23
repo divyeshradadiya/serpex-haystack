@@ -4,7 +4,7 @@
 
 import re
 import warnings
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, cast
+from typing import Any, Dict, List, Literal, Optional, cast
 
 from haystack import component, default_from_dict, default_to_dict, logging
 from haystack.core.errors import ComponentError
@@ -13,15 +13,12 @@ from haystack.utils import Secret, deserialize_secrets_inplace
 
 # The official SDK owns the HTTP contract (params, timeouts, error parsing), so this component cannot drift from
 # the API on its own.
-from serpex import SearchParams, SearchResponse, SerpApiException, SerpexClient
+from serpex import SearchParams, SearchResponse, SearchResult, SerpApiException, SerpexClient
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
-
-if TYPE_CHECKING:  # `serpex` exports SearchResult from 2.11.1; the module path exists in every 2.x
-    from serpex_sdk.types import SearchResult
 
 logger = logging.getLogger(__name__)
 
-__version__ = "1.1.1"
+__version__ = "2.0.0"
 
 #: Product token appended to the SDK's User-Agent ("serpex-python/<sdk> serpex-haystack/<version>").
 USER_AGENT = f"serpex-haystack/{__version__}"
@@ -40,10 +37,18 @@ class SerpexError(ComponentError):
     :ivar retryable: True when the same request can succeed on retry (429, 5xx, timeout, network).
     """
 
-    def __init__(self, message: str, status_code: Optional[int], details: Dict[str, Any], retryable: bool) -> None:
+    def __init__(
+        self,
+        message: str,
+        status_code: Optional[int] = None,
+        details: Optional[Dict[str, Any]] = None,
+        retryable: bool = False,
+    ) -> None:
+        # Defaults matter: pickle and copy.deepcopy rebuild an exception as
+        # cls(*args) with args == (message,), then restore __dict__.
         super().__init__(message)
         self.status_code = status_code
-        self.details = details
+        self.details: Dict[str, Any] = dict(details or {})
         self.retryable = retryable
 
 
@@ -106,7 +111,7 @@ def describe_serpex_error(err: SerpApiException) -> str:
 def _warn_deprecated(names: List[str]) -> None:
     warnings.warn(
         f"SerpexWebSearch: {', '.join(names)} {'is' if len(names) == 1 else 'are'} deprecated and ignored by the "
-        "Serpex API; the value is not sent. It will be removed in 2.0.",
+        "Serpex API; the value is not sent. It will be removed in 3.0.",
         DeprecationWarning,
         stacklevel=3,
     )
@@ -155,7 +160,7 @@ class SerpexWebSearch:
 
         :param api_key: Serpex API key for authentication. Get yours at https://serpex.dev
         :param engine: Deprecated — ignored by the Serpex API and not sent. Still accepted so existing code keeps
-                      working (emits a DeprecationWarning); removed in 2.0.
+                      working (emits a DeprecationWarning); removed in 3.0.
         :param timeout: Timeout in seconds for the API request. Defaults to 60, or 100 with include_content.
         :param retry_attempts: Total attempts for a request that fails with a transport error, 429 or 5xx.
                               4xx errors are never retried. Defaults to 2.
@@ -252,14 +257,14 @@ class SerpexWebSearch:
         return SearchParams(q=query)
 
     @staticmethod
-    def _to_document(result: "SearchResult", query: str, with_content: bool) -> Document:
+    def _to_document(result: SearchResult, query: str, with_content: bool) -> Document:
         """Map one API result to a Document: page content when extracted, otherwise the snippet."""
         meta: Dict[str, Any] = {
             "title": result.title,
             "url": result.url,
             "position": result.position,
             "query": query,
-            # Deprecated: always "auto"; removed in 2.0.
+            # Deprecated: always "auto"; removed in 3.0.
             "engine": "auto",
         }
         if with_content:
@@ -282,8 +287,8 @@ class SerpexWebSearch:
 
         :param query: The search query string. Operators such as `site:`, `-site:`, `after:YYYY-MM-DD` and
             `before:YYYY-MM-DD` go here.
-        :param engine: Deprecated — ignored by the Serpex API and not sent; removed in 2.0.
-        :param time_range: Deprecated — ignored by the Serpex API and not sent; removed in 2.0. Put
+        :param engine: Deprecated — ignored by the Serpex API and not sent; removed in 3.0.
+        :param time_range: Deprecated — ignored by the Serpex API and not sent; removed in 3.0. Put
             `after:YYYY-MM-DD` in the query instead.
         :param include_content: Overrides the component's include_content for this call.
         :returns: Dictionary containing a list of Document objects with search results.
