@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-10-23
+
+### Breaking
+- A failed request raises `SerpexError` (a Haystack `ComponentError`, exported from `haystack_integrations.components.websearch`) instead of `httpx.HTTPStatusError` / `httpx.RequestError`. Code that caught the `httpx` exceptions must catch `SerpexError`; `status_code`, `details` and `retryable` carry what the `httpx` response used to. `SerpexError` pickles and deep-copies with every field.
+- `httpx` is no longer a dependency; `serpex>=2.12.0,<3` is.
+- The deprecated `engine` / `time_range` are still accepted (warn, not sent) and are now removed in 3.0 (was announced for 2.0).
+
+### Changed
+- Calls the API through the official `serpex` SDK (`>=2.12.0,<3`) instead of its own `httpx` code, so parameters, timeouts and error parsing cannot drift from the API. Results are typed (`serpex.SearchResponse`). `httpx` is no longer a direct dependency.
+- `SerpexError` messages: one actionable sentence per HTTP status (400, 401 check `SERPEX_API_KEY`, 402 out of credits with the balance, 429 retry after N ms with the plan limit, 5xx temporary and not charged).
+- Retries (429, 5xx, transport errors) are unchanged; 4xx still fails on the first attempt.
+- `User-Agent: serpex-python/<sdk> serpex-haystack/2.0.0`.
+
+### Fixed
+- README: the "Time Filters" feature was listed although `time_range` is ignored by the API; date filters are `after:` / `before:` operators in the query.
+
+### Tests
+- Offline tests against recorded API responses (`tests/fixtures/`), covering results, page content, content errors, empty results, retries and every error status.
+
 ## [1.1.0] - 2026-10-01
 
 ### Added

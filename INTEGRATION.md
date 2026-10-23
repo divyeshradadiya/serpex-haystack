@@ -27,10 +27,10 @@ toc: true
 
 ### Key Features
 
-- 🔍 **Web Search**: One search engine, nothing to configure; optional page content as markdown
+- 🔍 **Web Search**: nothing to configure, every search is routed automatically; optional page content as markdown
 - ⚡ **High Performance**: Fast and reliable with automatic retry logic and exponential backoff
 - 🎯 **Rich Results**: Get organic search results with titles, snippets, URLs, and positions
-- 🕒 **Time Filters**: Filter results by day, week, month, or year
+- 🕒 **Date filters**: `after:YYYY-MM-DD` / `before:YYYY-MM-DD` in the query (also `site:` and `-site:`)
 - 🔒 **Type-Safe**: Fully typed with comprehensive type hints
 - 📝 **Haystack Native**: Seamless integration with Haystack 2.0+ components
 
@@ -135,11 +135,12 @@ carries `meta["content_error"]`.
 
 #### Deprecated parameters
 
-Serpex is one search engine, so there is nothing to select. `engine` (in
+Every search is routed automatically, so there is nothing to select. `engine` (in
 `__init__` and `run()`) and `time_range` (in `run()`) are deprecated and ignored
 by the Serpex API. They are still accepted so existing code keeps running, emit a
 `DeprecationWarning`, and are not sent. Pipelines saved with an older version
-still load: their `engine` value is dropped. Removed in 2.0.
+still load: their `engine` value is dropped. Removed in 3.0. For a date filter put
+`after:YYYY-MM-DD` / `before:YYYY-MM-DD` in the query instead of `time_range`.
 
 #### Timeouts and retries
 
@@ -155,6 +156,27 @@ The default timeout is 60 s (100 s with `include_content`), longer than the
 server's own budget, so a slow search isn't abandoned after the server has billed
 it. Only transport errors, 429 and 5xx are retried; 4xx errors (bad request,
 invalid key, no credits) fail immediately.
+
+### Errors
+
+A failed request raises `SerpexError` (a Haystack `ComponentError`) whose message is one
+sentence: the HTTP status, the API's reason, whether it was charged and whether to retry,
+for example `Out of Serpex credits (HTTP 402). Balance: 0 credits. Top up at ...` or
+`Serpex rate limit exceeded (limit: 5 requests per second). Retry in 292 ms.` It also
+carries `status_code`, `details` (the API's error body) and `retryable`.
+
+```python
+from haystack_integrations.components.websearch.serpex import SerpexError
+
+try:
+    web_search.run(query="AI news")
+except SerpexError as e:
+    print(e.status_code, e.retryable, e)
+```
+
+The component calls the API through the official [`serpex`](https://pypi.org/project/serpex/)
+SDK, so request parameters, timeouts and error parsing follow the SDK. Requests carry
+`User-Agent: serpex-python/<sdk version> serpex-haystack/<version>`.
 
 ### Component API
 
@@ -179,6 +201,8 @@ invalid key, no credits) fail immediately.
 
 - **documents** (`List[Document]`): List of Haystack Document objects containing search results.
 
+Raises `SerpexError` when the request fails (after retries for 429, 5xx and transport errors).
+
 Each document includes:
 - **content**: The page content (markdown) when `include_content` is on and the page was extracted; otherwise the snippet
 - **meta**:
@@ -187,7 +211,7 @@ Each document includes:
   - `position`: Position in search results
   - `query`: Original search query
   - `snippet`, `content_error`: Only with `include_content`
-  - `engine`: **Deprecated**, always `"auto"`; removed in 2.0
+  - `engine`: **Deprecated**, always `"auto"`; removed in 3.0
 
 ### Error Handling
 

@@ -2,6 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from haystack_integrations.components.websearch.serpex import SerpexWebSearch
+from haystack_integrations.components.websearch.serpex import SerpexError, SerpexWebSearch
 
-__all__ = ["SerpexWebSearch"]
+__all__ = ["SerpexError", "SerpexWebSearch"]

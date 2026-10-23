@@ -2,40 +2,116 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import re
 import warnings
 from typing import Any, Dict, List, Literal, Optional, cast
 
-import httpx
 from haystack import component, default_from_dict, default_to_dict, logging
+from haystack.core.errors import ComponentError
 from haystack.dataclasses import Document
 from haystack.utils import Secret, deserialize_secrets_inplace
+
+# The official SDK owns the HTTP contract (params, timeouts, error parsing), so this component cannot drift from
+# the API on its own.
+from serpex import SearchParams, SearchResponse, SearchResult, SerpApiException, SerpexClient
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 logger = logging.getLogger(__name__)
 
-__version__ = "1.1.0"
+__version__ = "2.0.0"
 
+#: Product token appended to the SDK's User-Agent ("serpex-python/<sdk> serpex-haystack/<version>").
 USER_AGENT = f"serpex-haystack/{__version__}"
 
-# Client timeouts (seconds), above the server's own budget for each call (search 30 s upstream,
-# 45 s with include_content), so a slow search is not abandoned client-side after the server
-# has already finished and billed it.
-SEARCH_TIMEOUT = 60.0
-SEARCH_CONTENT_TIMEOUT = 100.0
+BASE_URL = "https://api.serpex.dev"
+
+BILLING_URL = "https://app.serpex.dev/dashboard/billing"
+
+
+class SerpexError(ComponentError):
+    """
+    A Serpex request failed.
+
+    :ivar status_code: HTTP status, or None for a timeout or a network failure.
+    :ivar details: the parsed API error body, e.g. ``{"error": ..., "retryAfterMs": 292, "limit": 5}``.
+    :ivar retryable: True when the same request can succeed on retry (429, 5xx, timeout, network).
+    """
+
+    def __init__(
+        self,
+        message: str,
+        status_code: Optional[int] = None,
+        details: Optional[Dict[str, Any]] = None,
+        retryable: bool = False,
+    ) -> None:
+        # Defaults matter: pickle and copy.deepcopy rebuild an exception as
+        # cls(*args) with args == (message,), then restore __dict__.
+        super().__init__(message)
+        self.status_code = status_code
+        self.details: Dict[str, Any] = dict(details or {})
+        self.retryable = retryable
 
 
 def _is_retryable(error: BaseException) -> bool:
     """Retry transport errors, 429 and 5xx only. 4xx (bad request, auth, credits, plan) never succeed on retry."""
-    if isinstance(error, httpx.HTTPStatusError):
-        status: int = error.response.status_code
-        return status == 429 or status >= 500
-    return isinstance(error, httpx.RequestError)
+    if isinstance(error, SerpApiException):
+        status = error.status_code
+        return status is None or status == 429 or status >= 500
+    return False
+
+
+def _sentence(text: str) -> str:
+    return text if re.search(r"[.!?]$", text) else f"{text}."
+
+
+def _api_message(err: SerpApiException) -> str:
+    """The API's own error text (string, ``{"message"}`` or framework ``message``)."""
+    details = err.details or {}
+    error = details.get("error")
+    if isinstance(error, str) and error:
+        message = details.get("message")
+        if err.status_code == 404 and isinstance(message, str) and message:
+            return message
+        return error
+    if isinstance(error, dict) and isinstance(error.get("message"), str) and error["message"]:
+        return str(error["message"])
+    if isinstance(details.get("message"), str) and details["message"]:
+        return str(details["message"])
+    return str(err.args[0]) if err.args else "API request failed"
+
+
+def describe_serpex_error(err: SerpApiException) -> str:
+    """One actionable sentence per failure: what happened, whether it was charged, whether to retry."""
+    status = err.status_code
+    details = err.details or {}
+    msg = _api_message(err)
+    if status is None:
+        return f"Serpex request failed: {_sentence(msg)} Safe to retry."
+    if status == 400:
+        return f"Serpex rejected the request (HTTP 400): {_sentence(msg)}"
+    if status == 401:
+        return f"Serpex rejected the API key (HTTP 401): {_sentence(msg)} Check SERPEX_API_KEY."
+    if status == 402:
+        balance = details.get("remainingCredits")
+        balance_text = f" Balance: {balance} credits." if isinstance(balance, int) else ""
+        return f"Out of Serpex credits (HTTP 402).{balance_text} Top up at {BILLING_URL}."
+    if status == 429:
+        limit = details.get("limit")
+        limit_text = f" (limit: {limit} requests per second)" if isinstance(limit, int) else ""
+        wait = details.get("retryAfterMs")
+        wait_ms = wait if isinstance(wait, int) else 1000
+        return f"Serpex rate limit exceeded{limit_text}. Retry in {wait_ms} ms."
+    if status >= 500:
+        charged = "" if re.search("charged", msg, re.I) else " Not charged."
+        retry_hint = "" if re.search("retry", msg, re.I) else " Retry shortly."
+        return f"Serpex is temporarily unavailable (HTTP {status}): {_sentence(msg)}{charged}{retry_hint}"
+    return f"Serpex request failed (HTTP {status}): {_sentence(msg)}"
 
 
 def _warn_deprecated(names: List[str]) -> None:
     warnings.warn(
         f"SerpexWebSearch: {', '.join(names)} {'is' if len(names) == 1 else 'are'} deprecated and ignored by the "
-        "Serpex API; the value is not sent. It will be removed in 2.0.",
+        "Serpex API; the value is not sent. It will be removed in 3.0.",
         DeprecationWarning,
         stacklevel=3,
     )
@@ -64,6 +140,9 @@ class SerpexWebSearch:
         print(f"URL: {doc.meta['url']}")
         print(f"Snippet: {doc.content}")
     ```
+
+    A failed request raises `SerpexError` (a Haystack `ComponentError`) with the HTTP status, the API's message,
+    whether it was charged and whether to retry.
     """
 
     def __init__(
@@ -81,7 +160,7 @@ class SerpexWebSearch:
 
         :param api_key: Serpex API key for authentication. Get yours at https://serpex.dev
         :param engine: Deprecated — ignored by the Serpex API and not sent. Still accepted so existing code keeps
-                      working (emits a DeprecationWarning); removed in 2.0.
+                      working (emits a DeprecationWarning); removed in 3.0.
         :param timeout: Timeout in seconds for the API request. Defaults to 60, or 100 with include_content.
         :param retry_attempts: Total attempts for a request that fails with a transport error, 429 or 5xx.
                               4xx errors are never retried. Defaults to 2.
@@ -100,33 +179,39 @@ class SerpexWebSearch:
         self.retry_attempts = retry_attempts
         self.include_content = include_content
         self.content_results = content_results
+        self._client: Optional[SerpexClient] = None
 
-        # Create httpx client
-        self._client = httpx.Client(follow_redirects=True, headers={"User-Agent": USER_AGENT})
-
-        # Define retry decorator
         @retry(
             reraise=True,
             stop=stop_after_attempt(self.retry_attempts),
             wait=wait_exponential(multiplier=1, min=2, max=10),
             retry=retry_if_exception(_is_retryable),
         )
-        def make_request(url: str, headers: Dict[str, str], params: Dict[str, Any], timeout: float) -> httpx.Response:
-            response = self._client.get(url, headers=headers, params=params, timeout=timeout)
-            response.raise_for_status()
-            return response
+        def make_request(params: SearchParams) -> SearchResponse:
+            return self._get_client().search(params)
 
         self._make_request = make_request
+
+    def _get_client(self) -> SerpexClient:
+        """The SDK client, created on first use (the API key is resolved then, not at init)."""
+        if self._client is None:
+            client = SerpexClient(self.api_key.resolve_value() or "", base_url=BASE_URL, timeout=self.timeout)
+            base_ua = client.session.headers.get("User-Agent", "")
+            if isinstance(base_ua, bytes):
+                base_ua = base_ua.decode("ascii", "replace")
+            client.session.headers["User-Agent"] = f"{base_ua} {USER_AGENT}".strip()
+            self._client = client
+        return self._client
 
     def __del__(self):
         """
         Clean up resources when the component is deleted.
 
-        Closes the HTTP client to prevent resource leaks.
+        Closes the HTTP session to prevent resource leaks.
         """
         try:
-            if hasattr(self, "_client"):
-                self._client.close()
+            if getattr(self, "_client", None) is not None:
+                self._client.session.close()  # type: ignore[union-attr]
         except Exception:
             pass
 
@@ -165,36 +250,28 @@ class SerpexWebSearch:
         deserialize_secrets_inplace(data["init_parameters"], keys=["api_key"])
         return cast("SerpexWebSearch", default_from_dict(cls, data))
 
-    def _build_params(self, query: str, with_content: bool) -> Dict[str, Any]:
+    def _build_params(self, query: str, with_content: bool) -> SearchParams:
         """Only q, include_content and content_results reach the API."""
-        params: Dict[str, Any] = {"q": query}
         if with_content:
-            params["include_content"] = "true"
-            params["content_results"] = self.content_results
-        return params
-
-    def _request_timeout(self, with_content: bool) -> float:
-        if self.timeout is not None:
-            return self.timeout
-        return SEARCH_CONTENT_TIMEOUT if with_content else SEARCH_TIMEOUT
+            return SearchParams(q=query, include_content=True, content_results=cast(Any, self.content_results))
+        return SearchParams(q=query)
 
     @staticmethod
-    def _to_document(result: Dict[str, Any], query: str, with_content: bool) -> Document:
+    def _to_document(result: SearchResult, query: str, with_content: bool) -> Document:
         """Map one API result to a Document: page content when extracted, otherwise the snippet."""
-        snippet = result.get("snippet", "")
         meta: Dict[str, Any] = {
-            "title": result.get("title", ""),
-            "url": result.get("url", ""),
-            "position": result.get("position", 0),
+            "title": result.title,
+            "url": result.url,
+            "position": result.position,
             "query": query,
-            # Deprecated: always "auto"; removed in 2.0.
+            # Deprecated: always "auto"; removed in 3.0.
             "engine": "auto",
         }
         if with_content:
-            meta["snippet"] = snippet
-            if result.get("content_error"):
-                meta["content_error"] = result["content_error"]
-        return Document(content=result.get("content") or snippet, meta=meta)
+            meta["snippet"] = result.snippet
+            if result.content_error is not None:
+                meta["content_error"] = result.content_error
+        return Document(content=result.content if result.content is not None else result.snippet, meta=meta)
 
     @component.output_types(documents=List[Document])
     def run(
@@ -208,14 +285,15 @@ class SerpexWebSearch:
         """
         Fetches web search results for the given query.
 
-        :param query: The search query string.
-        :param engine: Deprecated — ignored by the Serpex API and not sent; removed in 2.0.
-        :param time_range: Deprecated — ignored by the Serpex API and not sent; removed in 2.0.
+        :param query: The search query string. Operators such as `site:`, `-site:`, `after:YYYY-MM-DD` and
+            `before:YYYY-MM-DD` go here.
+        :param engine: Deprecated — ignored by the Serpex API and not sent; removed in 3.0.
+        :param time_range: Deprecated — ignored by the Serpex API and not sent; removed in 3.0. Put
+            `after:YYYY-MM-DD` in the query instead.
         :param include_content: Overrides the component's include_content for this call.
         :returns: Dictionary containing a list of Document objects with search results.
+        :raises SerpexError: When the request fails (after retries for 429, 5xx and transport errors).
         """
-        documents: List[Document] = []
-
         passed = [name for name, value in (("engine", engine), ("time_range", time_range)) if value is not None]
         if passed:
             _warn_deprecated(passed)
@@ -223,48 +301,25 @@ class SerpexWebSearch:
         with_content = self.include_content if include_content is None else include_content
 
         try:
-            params = self._build_params(query, with_content)
-            timeout = self._request_timeout(with_content)
-            headers = {
-                "Authorization": f"Bearer {self.api_key.resolve_value()}",
-                "Content-Type": "application/json",
-                "User-Agent": USER_AGENT,
-            }
+            response = self._make_request(self._build_params(query, with_content))
+        except SerpApiException as e:
+            message = describe_serpex_error(e)
+            # Not `message=`: that key collides with logging.LogRecord.message.
+            logger.error("Serpex search failed: {reason}", reason=message)
+            raise SerpexError(message, e.status_code, dict(e.details or {}), _is_retryable(e)) from e
 
-            # Make API request
-            response = self._make_request("https://api.serpex.dev/api/search", headers, params, timeout)
-            data = response.json()
-
-            # Parse search results
-            if "results" in data and isinstance(data["results"], list):
-                documents = [self._to_document(result, query, with_content) for result in data["results"]]
-
-                logger.info(
-                    "Successfully fetched {count} search results for query: {query}",
-                    count=len(documents),
-                    query=query,
-                )
-            else:
-                logger.warning(
-                    "No results found in Serpex API response for query: {query}",
-                    query=query,
-                )
-
-        except httpx.HTTPStatusError as e:
-            logger.error(
-                "HTTP error occurred while fetching Serpex results: {status} - {detail}",
-                status=e.response.status_code,
-                detail=str(e),
+        documents = [self._to_document(result, query, with_content) for result in response.results]
+        if documents:
+            logger.info(
+                "Successfully fetched {count} search results for query: {query}",
+                count=len(documents),
+                query=query,
             )
-            raise
-        except httpx.RequestError as e:
-            logger.error("Request error occurred while fetching Serpex results: {error}", error=e)
-            raise
-        except Exception as e:
-            logger.error(
-                "Unexpected error occurred while fetching Serpex results: {error}",
-                error=e,
+        else:
+            logger.warning(
+                "No results found in Serpex API response for query: {query} ({reason})",
+                query=query,
+                reason=response.message or response.metadata.message or "",
             )
-            raise
 
         return {"documents": documents}
